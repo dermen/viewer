@@ -6,6 +6,9 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 import numpy as np
 from matplotlib.widgets import RectangleSelector
 
+from new_slide_hist import HistUpdater
+
+plt.style.use('dark_background')
 
 class Formatter(object):
     def __init__(self, im):
@@ -14,14 +17,27 @@ class Formatter(object):
         z = self.im.get_array()[int(y), int(x)]
         return 'x={:.0f}, y={:.0f}, z={:.01f}'.format(x, y, z)
 
+fr = {'bg':'black'} 
 class ImageViewer(tk.Frame):
     
     def __init__(self, master, img_data,  *args, **kwargs):
-        tk.Frame.__init__(self, *args, **kwargs)
+        tk.Frame.__init__(self, master,  background='black') #*args, **kwargs)
         self.master = master
+        
+        self.image_frame = tk.Frame( self.master, **fr )
+        self.image_frame.pack( side=tk.TOP)
+        
+        self.slider_frame = tk.Frame(self.master, **fr)
+        self.slider_frame.pack(side=tk.TOP, expand=1, fill=tk.BOTH)
+        self.hist_frame = tk.Frame( self.slider_frame , **fr)
+        self.hist_frame.pack( side=tk.LEFT, expand=tk.YES, fill=tk.BOTH)
+        self.vmin = self.vmax = None
+
+        #load the image
         self.img = img_data
         self.rectprops = dict(facecolor='red', edgecolor = 'black',
                  alpha=0.2, fill=True)
+        
         self._create_figure()    
         self._add_img()
         self._setup_canvas()
@@ -31,7 +47,26 @@ class ImageViewer(tk.Frame):
         self.ymin = None
         self.RS.set_active(False)
         self.toggle_tools()
+        self._zoom_im = None
 
+        self._add_hist_updater()
+
+        self._update_clim()
+
+    def _update_clim(self):
+        self.vmin, self.vmax = self.hist_updater.minval, self.hist_updater.maxval
+        self._im.set_clim( vmin=self.vmin, vmax=self.vmax)
+        if self._zoom_im is not None:
+            self._zoom_im.set_clim( vmin=self.vmin, vmax=self.vmax)
+        self.canvas.draw()
+        self.canvas2.draw()
+        self.master.after( 500, self._update_clim )    
+
+    def _add_hist_updater(self):
+        self.hist_updater = HistUpdater( self.hist_frame, self.img.ravel(), label='pixels', plot=False, range_slider_len=800, 
+            background='black')
+        self.hist_updater.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
+        
     def toggle_tools(self):
         if self.toolbar._active in ['PAN','ZOOM']:
             self.use_rect_zoom_var.set(0)
@@ -47,7 +82,9 @@ class ImageViewer(tk.Frame):
     
     def _add_img(self):
         self._im = self.ax.imshow(self.img, aspect='equal', interpolation='nearest', norm=None, 
-            vmin=None, vmax=None)
+            vmin=self.vmin, vmax=self.vmax, cmap='gnuplot')
+        self.vmin,self.vmax = self._im.get_clim()
+        #self.cbar = plt.colorbar( self._im)
         self.ax.format_coord = Formatter(self._im)
 
     def _set_rectangle_zoom(self):
@@ -62,26 +99,28 @@ class ImageViewer(tk.Frame):
             self.RS.set_active(False)
 
     def _setup_canvas(self):
-        self.frame12 = tk.Frame(self.master)
-        self.frame12.pack(fill=tk.BOTH, side=tk.LEFT, expand=1)
+        self.image_frame_left = tk.Frame(self.image_frame, **fr)
+        self.image_frame_left.pack(fill=tk.BOTH, side=tk.LEFT, expand=1)
         
         self.use_rect_zoom_var = tk.IntVar()
-        self.use_rect_zoom_checkbutton = tk.Checkbutton(self.frame12, text='Rectangle zoom', 
-            var=self.use_rect_zoom_var, command=self._set_rectangle_zoom)
+        self.use_rect_zoom_checkbutton = tk.Checkbutton(self.image_frame_left, text='Rectangle zoom', 
+            var=self.use_rect_zoom_var, command=self._set_rectangle_zoom, fg='white', bg='black')
         self.use_rect_zoom_checkbutton.pack(side=tk.TOP)
 
-        self.frame1 = tk.Frame(self.frame12)
-        self.frame1.pack(fill=tk.BOTH, expand=1)
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.frame1)
+        self.image_left_canvas_frame = tk.Frame(self.image_frame_left, **fr)
+        self.image_left_canvas_frame.pack(fill=tk.BOTH, expand=1)
+        
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.image_left_canvas_frame)
+        self.canvas.get_tk_widget().configure(background='black', highlightcolor='black', highlightbackground='black')
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
         
-        self.frame2 = tk.Frame(self.frame12)
-        self.frame2.pack(fill=tk.X, expand=0)
-        self.toolbar = NavigationToolbar2TkAgg(self.canvas, self.frame2)
-        #self.toolbar = CustomToolbar(self.canvas, self.frame2)
+        self.image_toolbar_fr = tk.Frame(self.image_frame_left, **fr)
+        self.image_toolbar_fr.pack(fill=tk.X, expand=1)
+        self.toolbar = NavigationToolbar2TkAgg(self.canvas, self.image_toolbar_fr)
         self.toolbar.update()
-        self.toolbar.pack(fill=tk.X, expand=0)
+        #self.toolbar.get_tk_widget().configure(background='black', highlightcolor='black', highlightbackground='black')
+        self.toolbar.pack(fill=tk.X, expand=1)
     
 
     def _setup_zoom_space(self):
@@ -91,15 +130,15 @@ class ImageViewer(tk.Frame):
         self.zoom_fig.patch.set_visible(False)
         self.zoom_fig.canvas.toolbar.pack_forget()
 
-        self.frame3 = tk.Frame(self.master)
-        self.frame3.pack(fill=tk.BOTH, expand=1, side=tk.LEFT)
+        self.zoom_frame = tk.Frame(self.image_frame, **fr)
+        self.zoom_frame.pack(fill=tk.BOTH, expand=1, side=tk.LEFT,padx=10, pady=10 )
 
         self.var = tk.IntVar()
-        self.cb = tk.Checkbutton(self.frame3, text='Show pixel values', 
-            variable=self.var, command=self._toggle_show_pixel_values)
+        self.cb = tk.Checkbutton(self.zoom_frame, text='Show pixel values', 
+            variable=self.var, command=self._toggle_show_pixel_values, fg='white', bg='black')
         self.cb.pack(side=tk.TOP)
 
-        self.canvas2 = FigureCanvasTkAgg(self.zoom_fig, master=self.frame3)
+        self.canvas2 = FigureCanvasTkAgg(self.zoom_fig, master=self.zoom_frame)
         self.canvas2.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
     
     def _toggle_show_pixel_values(self,):
@@ -120,7 +159,8 @@ class ImageViewer(tk.Frame):
 
     def _draw_zoom(self):
         self.zoom_ax.clear()
-        self.zoom_ax.imshow( self.img2, aspect='auto', interpolation='nearest')
+        self._zoom_im = self.zoom_ax.imshow( self.img2, aspect='auto', 
+            interpolation='nearest', vmin=self.vmin, vmax=self.vmax, cmap='gnuplot')
         if self.show_pixel_values and self.img2.size < 1000:
             for y in range(self.img2.shape[0]):
                 for x in range(self.img2.shape[1]):
@@ -146,7 +186,7 @@ if __name__ == '__main__':
     img = np.sin(X**2/ 10000.)**2 *np.cos(Y**2/10000.)*3
     
     root = tk.Tk()
-    im = ImageViewer(root, img)
+    im = ImageViewer(root, img, background='black')
     im.pack(fill=tk.BOTH, expand=1)
     root.mainloop()
 

@@ -10,16 +10,20 @@ import pylab as plt
 import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 
+plt.style.use('dark_background')
 
-labstyle={'bg':'snow', 'fg':'black'}
+labstyle={'bg':'black', 'fg':'white'}
+
 fr = {'bg':'black'}
 frpk = {'padx':5, 'pady':5}
 class HistUpdater(tk.Frame):
     '''Illustrate how to drag items on a Tkinter canvas'''
     def __init__(self, parent, data, color='blue', label='label', 
-            max_bins=1000):
+            max_bins=1000, plot=True, range_slider_len=400, **kwargs):
        
-        tk.Frame.__init__(self, parent,)
+        tk.Frame.__init__(self, parent,  background='black') #**kwargs)
+        
+        self.plot=plot
         
         self.fig = plt.figure()
         self.ax = plt.gca()
@@ -28,7 +32,6 @@ class HistUpdater(tk.Frame):
         
         self.label = label
         self._set_fig_title()
-
 
         
         self.dat = data
@@ -51,7 +54,6 @@ class HistUpdater(tk.Frame):
         self.container_frame = tk.Frame( self, **fr)
         self.container_frame.pack(side=tk.TOP, expand=True, **frpk)
 
-
         mainframe = tk.Frame(self.container_frame, **fr)
         mainframe.pack(side=tk.TOP, expand=True, **frpk)
         
@@ -59,7 +61,7 @@ class HistUpdater(tk.Frame):
         self.mainframe2.pack(side=tk.TOP, expand=True, **frpk)
 
 
-        self.range_slider_len = 400
+        self.range_slider_len = range_slider_len
         self.range_slider_height= 60
         self.range_slider_token_height=40
         self.range_slider_token_halfheight=20
@@ -78,19 +80,18 @@ class HistUpdater(tk.Frame):
 
         self.range_slider_minLHS = self.range_slider_token_halfwidth + self.range_slider_token_LHS_offset
         
-
 #       create a canvas for drawing the range-slider...
         tk.Label(mainframe, text=label, \
             **labstyle).pack(side=tk.LEFT, fill=tk.BOTH, **frpk)
         self.canvas = tk.Canvas(mainframe, width=self.range_slider_len, 
-            height=self.range_slider_height, bg='white')
+            height=self.range_slider_height, bg='black')
         self.canvas.pack(expand=True, side=tk.LEFT, **frpk)
        
 #       reate orizontal line sepcifying the slider token track
         self.canvas.create_line( ( self.range_slider_token_LHS_offset, 
             self.range_slider_token_vertical_offset+self.range_slider_token_halfheight, 
             self.range_slider_len-self.range_slider_token_RHS_offset, 
-            self.range_slider_token_vertical_offset+self.range_slider_token_halfheight))
+            self.range_slider_token_vertical_offset+self.range_slider_token_halfheight), fill='white')
         
 #       create a vertical line along the data mean
         dat_mean = np.mean(data)
@@ -100,14 +101,22 @@ class HistUpdater(tk.Frame):
         self.canvas.create_line( ( vert_line_pos, 
             self.range_slider_token_vertical_offset, 
             vert_line_pos, 
-            self.range_slider_token_vertical_offset+self.range_slider_token_height))
+            self.range_slider_token_vertical_offset+self.range_slider_token_height), fill='white')
 
 #       set a single bar slider for adjusting the binning
-        self.binning_slider = tk.Scale(mainframe, from_=0.01, to=.9999, resolution=0.01, 
-            orient=tk.VERTICAL, command=self._scale_update_hist,
-            length=50, sliderlength=10, width=40)
-        self.binning_slider.pack( expand=True, side=tk.LEFT,  **frpk)
-        self.binning_slider.set(0.2)
+        if self.plot:
+            bin_fr = tk.Frame( mainframe, background='black')
+            bin_fr.pack( expand=True, side=tk.LEFT,  **frpk)
+            bin_lab = tk.Label( bin_fr, text='binning', anchor=tk.E, **labstyle)
+            bin_lab.pack( side=tk.TOP, fill=tk.BOTH)
+            
+            scale_fr = tk.Frame( bin_fr)
+            scale_fr.pack( side=tk.TOP, fill=tk.BOTH)
+            self.binning_slider = tk.Scale(scale_fr, from_=0.01, to=.9999, resolution=0.01, 
+                orient=tk.VERTICAL, command=self._scale_update_hist,
+                length=50, sliderlength=10, width=40, bg='black',fg='white' )
+            self.binning_slider.pack() # expand=True, side=tk.LEFT,  **frpk)
+            self.binning_slider.set(0.2)
 
 #       this data is used to keep track the slider components as they are dragged
         self._drag_data = {"x": 0, "y": 0, "item": None}
@@ -124,19 +133,21 @@ class HistUpdater(tk.Frame):
 #       TEXT LABEL
         self.minvaltext = self.canvas.create_text( 
             self.range_slider_minLHS-self.text_offset, 
-            self.token_text_vertical_position, text="%.2f"%self.dmin, fill='black')
+            self.token_text_vertical_position, text="%.2f"%self.dmin, fill='white')
         self.maxvaltext = self.canvas.create_text( 
             self.range_slider_maxRHS+self.text_offset, 
-            self.token_text_vertical_position, text="%.2f"%self.dmax, fill='black')
+            self.token_text_vertical_position, text="%.2f"%self.dmax, fill='white')
         
         #   set the figure canvas for the histogram plots
-        self._setup_fig_canvas()
+        if self.plot:
+            self._setup_fig_canvas()
 
 #       make first histogram plots
-        self._set_bins(bin_frac=0.1)
-        self._make_bar_plots()
-        self._set_bar_heights()
-        self._draw_hist()
+        if self.plot:
+            self._set_bins(bin_frac=0.1)
+            self._make_bar_plots()
+            self._set_bar_heights()
+            self._draw_hist()
         
         # add bindings for clicking, dragging and releasing over
         # any object with the "token" tag
@@ -182,15 +193,19 @@ class HistUpdater(tk.Frame):
 
     def _setup_fig_canvas(self):
         #toplvl = tk.Toplevel(self.master)
-        self.disp_frame = tk.Frame( self.mainframe2 )
-        self.disp_frame.pack( side=tk.TOP, expand=1, fill=tk.BOTH )
+        self.disp_frame = tk.Frame( self.mainframe2, **fr )
+        self.disp_frame.pack( side=tk.TOP, expand=1, fill=tk.BOTH, **frpk )
         
         self.fig_canvas = FigureCanvasTkAgg(self.fig, master=self.disp_frame)
+        self.fig_canvas.draw()
         self.fig_canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        toolbar = NavigationToolbar2TkAgg(self.fig_canvas, self.disp_frame)
+        self.toolbar_fr = tk.Frame(self.mainframe2)
+        self.toolbar_fr.pack(fill=tk.X, expand=0)
+        toolbar = NavigationToolbar2TkAgg(self.fig_canvas, self.toolbar_fr)
         toolbar.update()
-        self.fig_canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        #self.fig_canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        toolbar.pack(fill=tk.BOTH, expand=1)
 
     def _draw_hist(self):
         #self.fig.canvas.draw()
@@ -288,8 +303,9 @@ class HistUpdater(tk.Frame):
             
             self.minval = ((x_new) / self.range_slider_value_range ) \
                 * ( self.dmax - self.dmin ) + self.dmin
-            
-        self._range_slider_update_hist()
+        
+        if self.plot: 
+            self._range_slider_update_hist()
 
     
 def main():
@@ -311,6 +327,7 @@ def main():
     root = tk.Tk()
     nrows = 2
     ncols = 1
+    plot=False
     #fig, axs = plt.subplots( nrows=nrows, ncols=ncols )
     assert( nrows * ncols == len( DAT)) 
     #axs = axs.reshape( (nrows, ncols))
@@ -321,8 +338,13 @@ def main():
             label = labels[i_ax]
             dat = DAT[i_ax]
             color = colors[i_ax]
-            HistUpdater(root, dat, color=color, label=label).pack(side=tk.LEFT, expand=0) #, fill=tk.BOTH, expand=1)
+            hist = HistUpdater(root, dat, color=color, label=label, plot=plot)
+            hist.grid( column=i_col, row=i_row, sticky='EW' ) #.pack(side=tk.LEFT, expand=0) #, fill=tk.BOTH, expand=1)
             i_ax +=1
+    for i_col in xrange( ncols):
+        root.grid_columnconfigure(i_col, weight=1)
+    for i_row in xrange( nrows):
+        root.grid_rowconfigure(i_row, weight=1)
     #plt.draw()
     #plt.pause(0.0001)
     root.mainloop()
