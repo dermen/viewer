@@ -52,13 +52,13 @@ class HistUpdater(tk.Frame):
                                 self.smallest_bins[-1]+self.smallest_width)
 #       frames
         self.container_frame = tk.Frame( self, **fr)
-        self.container_frame.pack(side=tk.TOP, expand=True, **frpk)
+        self.container_frame.pack(side=tk.TOP, expand=tk.YES, **frpk)
 
         mainframe = tk.Frame(self.container_frame, **fr)
-        mainframe.pack(side=tk.TOP, expand=True, **frpk)
+        mainframe.pack(side=tk.TOP, expand=tk.YES, **frpk)
         
         self.mainframe2 = tk.Frame(self.container_frame, **fr)
-        self.mainframe2.pack(side=tk.TOP, expand=True, **frpk)
+        self.mainframe2.pack(side=tk.TOP, expand=tk.YES, **frpk)
 
 
         self.range_slider_len = range_slider_len
@@ -81,11 +81,11 @@ class HistUpdater(tk.Frame):
         self.range_slider_minLHS = self.range_slider_token_halfwidth + self.range_slider_token_LHS_offset
         
 #       create a canvas for drawing the range-slider...
-        tk.Label(mainframe, text=label, \
-            **labstyle).pack(side=tk.LEFT, fill=tk.BOTH, **frpk)
+        #tk.Label(mainframe, text=label, \
+        #    **labstyle).pack(side=tk.LEFT, expand=tk.YES,  fill=tk.BOTH, **frpk)
         self.canvas = tk.Canvas(mainframe, width=self.range_slider_len, 
             height=self.range_slider_height, bg='black')
-        self.canvas.pack(expand=True, side=tk.LEFT, **frpk)
+        self.canvas.pack(expand=tk.YES, side=tk.LEFT, fill=tk.X, **frpk)
        
 #       reate orizontal line sepcifying the slider token track
         self.canvas.create_line( ( self.range_slider_token_LHS_offset, 
@@ -106,7 +106,7 @@ class HistUpdater(tk.Frame):
 #       set a single bar slider for adjusting the binning
         if self.plot:
             bin_fr = tk.Frame( mainframe, background='black')
-            bin_fr.pack( expand=True, side=tk.LEFT,  **frpk)
+            bin_fr.pack( expand=tk.YES, side=tk.LEFT,  **frpk)
             bin_lab = tk.Label( bin_fr, text='binning', anchor=tk.E, **labstyle)
             bin_lab.pack( side=tk.TOP, fill=tk.BOTH)
             
@@ -194,14 +194,14 @@ class HistUpdater(tk.Frame):
     def _setup_fig_canvas(self):
         #toplvl = tk.Toplevel(self.master)
         self.disp_frame = tk.Frame( self.mainframe2, **fr )
-        self.disp_frame.pack( side=tk.TOP, expand=1, fill=tk.BOTH, **frpk )
+        self.disp_frame.pack( side=tk.TOP, expand=tk.YES, fill=tk.BOTH, **frpk )
         
         self.fig_canvas = FigureCanvasTkAgg(self.fig, master=self.disp_frame)
         self.fig_canvas.draw()
-        self.fig_canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        self.fig_canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
 
         self.toolbar_fr = tk.Frame(self.mainframe2)
-        self.toolbar_fr.pack(fill=tk.X, expand=0)
+        self.toolbar_fr.pack(fill=tk.X, expand=tk.YES)
         toolbar = NavigationToolbar2TkAgg(self.fig_canvas, self.toolbar_fr)
         toolbar.update()
         #self.fig_canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
