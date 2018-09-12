@@ -9,7 +9,7 @@ from matplotlib.widgets import RectangleSelector
 import sys
 import time
 
-from new_slide_hist4 import HistUpdater
+from rangeslider5 import RangeSlider
 
 fr = {'bg':'black'} 
 
@@ -25,6 +25,9 @@ class ImageViewer(tk.Frame):
 ########################################
 
 #       Whole image view binning factor
+        self.img = img_data
+        self.imgY, self.imgX = self.img.shape
+        self.zoom_initX = self.zoom_initY= 100
         self.main_img_scale =  4
         self.binning_factor = self.main_img_scale        
 #       scale slider factors
@@ -43,7 +46,6 @@ class ImageViewer(tk.Frame):
         self.dragging_selector = True
         self.dragging_lower_right = True  
 #       load the image
-        self.img = img_data
         self.rectprops = dict(facecolor='none', edgecolor = '#00fa32',fill=False)
         self.show_pixel_values=False
         self.ymin = None
@@ -80,14 +82,13 @@ class ImageViewer(tk.Frame):
         self._setup_range_slider_frame()
         self._add_range_slider()
         self._add_zoom_scale_widget()
-        self._add_show_zoom_window_widget()
 #       ########
 
         self._setup_selector()
 
 #       #######
         self.RS.set_active(True) 
-        self.RS.extents = (0,100,0,100) 
+        self.RS.extents = (0,self.zoom_initX,0,self.zoom_initY) 
         self._sync_zoomwindow_to_selector() 
 
         self._set_key_bindings()
@@ -119,12 +120,17 @@ class ImageViewer(tk.Frame):
         self.menu.add_cascade(label="Image", menu=filemenu)
         self.master.config(menu=self.menu)
 
+    def _keyboard_quit(self, event):
+        self.master.quit()
+
     def _set_key_bindings(self):
         #self.master.bind_all("<MouseWheel>", self._on_mousewheel)
         
         self.master.bind_all("<Command-z>", self._zoom_in)
         self.master.bind_all("<Command-Shift-z>", self._zoom_out)
-        
+       
+        self.master.bind_all("<Command-w>", self._keyboard_quit) 
+
         self.master.bind_all("<Shift-Left>", self._move_left)
         self.master.bind_all("<Shift-Right>", self._move_right)
         self.master.bind_all("<Shift-Up>", self._move_up)
@@ -269,12 +275,12 @@ class ImageViewer(tk.Frame):
             self._update_master_image()
             print time.time()-t
         
-        if self.holding_rs:
-            t = time.time()
-            print("Holding that REECT")
-            #self._sync_zoomwindow_to_selector()
-            self._update_zoom_image()
-            print time.time()-t
+        #if self.holding_rs:
+        #    t = time.time()
+        #    print("Holding that REECT")
+        #    #self._sync_zoomwindow_to_selector()
+        #    self._update_zoom_image()
+        #    print time.time()-t
         
         if self.holding_zoom_master:
             print("Holding zoomwind")
@@ -284,9 +290,8 @@ class ImageViewer(tk.Frame):
         
         self.master.after( 50, self._widget_watcher)
 
-
     def _add_range_slider(self):
-        self.hist_updater = HistUpdater( self.slider_frame, 
+        self.hist_updater = RangeSlider( self.slider_frame, 
             self.img.ravel(), label='pixels', color='#00fa32', plot=False, range_slider_len=800, 
             background='black', ims =None) # [ (self._im, self.canvas), (self._zoom_im, self.zoom_canvas)   ])
         self.hist_updater.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
@@ -341,12 +346,6 @@ class ImageViewer(tk.Frame):
     
 
     
-    def _add_show_zoom_window_widget(self):
-        self._show_window_button = tk.Button(self.slider_frame, 
-            text="Show zoom window", 
-            command=self._launch_zoom_window) 
-        self._show_window_button.pack(side=tk.TOP, fill=tk.X, expand=tk.YES)
-      
 
     def _setup_master_image_canvas(self):
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.image_frame) 
@@ -370,14 +369,14 @@ class ImageViewer(tk.Frame):
         
 
     def _load_zoom_image_into_figure(self):
-        self._zoom_im = self.zoom_ax.imshow( self.img, 
+        self._zoom_im = self.zoom_ax.imshow( self.img[:self.zoom_initY,:self.zoom_initX], 
                 vmin=self.vmin, 
                 vmax=self.vmax, 
                 interpolation='nearest',
                 aspect='auto', 
                 cmap='gist_gray')
         
-        self.img_extent = (0,self.img.shape[1], 0, self.img.shape[0] ) 
+        self.img_extent = (0, self.zoom_initX, 0, self.zoom_initY ) 
     
     def _initialize_crosshair(self):
         
