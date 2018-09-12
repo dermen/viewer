@@ -115,6 +115,7 @@ class ImageViewer(tk.Frame):
         filemenu = tk.Menu(self.menu, tearoff=0)
         filemenu.add_command(label="Show zoom window", command=self._show_zoom_window)
         filemenu.add_command(label="Show colorscale slider", command=self._show_range_slider)
+        filemenu.add_command(label="Show zoom slider", command=self._show_zoom_scale_widget)
         filemenu.add_separator()
         filemenu.add_command(label="Exit", command=self.master.quit)
         self.menu.add_cascade(label="Image", menu=filemenu)
@@ -263,55 +264,43 @@ class ImageViewer(tk.Frame):
 
     def _widget_watcher(self):
         
-        new_vmin, new_vmax = self.hist_updater.minval, self.hist_updater.maxval
+        new_vmin, new_vmax = self.color_slider.minval, self.color_slider.maxval
         if new_vmin != self.vmin or new_vmax != self.vmax:
-            t = time.time()
-            print("chaning clim")
             self.vmin = new_vmin
             self.vmax = new_vmax
             self._im.set_clim( vmin=self.vmin, vmax=self.vmax)
             self._zoom_im.set_clim( vmin=self.vmin, vmax=self.vmax)
             self._update_zoom_image()
             self._update_master_image()
-            print time.time()-t
-        
-        #if self.holding_rs:
-        #    t = time.time()
-        #    print("Holding that REECT")
-        #    #self._sync_zoomwindow_to_selector()
-        #    self._update_zoom_image()
-        #    print time.time()-t
         
         if self.holding_zoom_master:
             print("Holding zoomwind")
-            t = time.time()
             self._update_zoom_image()
-            print time.time()-t
         
-        self.master.after( 50, self._widget_watcher)
+        self.master.after( 150, self._widget_watcher)
 
     def _add_range_slider(self):
-        self.hist_updater = RangeSlider( self.slider_frame, 
-            self.img.ravel(), label='pixels', color='#00fa32', plot=False, range_slider_len=800, 
-            background='black', ims =None) # [ (self._im, self.canvas), (self._zoom_im, self.zoom_canvas)   ])
-        self.hist_updater.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
-        self.hist_updater.pack_propagate()
+       
+        self.color_slider_master = tk.Toplevel(self.master)
+        self.color_slider = RangeSlider( self.color_slider_master, 
+            self.img.ravel(), color='#00fa32',
+            length=700, height=50 ,
+            background='black') 
+        self.color_slider.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
+        self.color_slider.pack_propagate()
     
     def _create_master_frame_figure(self):
         self.fig = plt.figure(figsize=(6,6))
         self.ax = self.fig.add_axes([0, 0, 1, 1])
-        #self.ax.set_facecolor("black") 
         self.fig.patch.set_visible(False)
         self.ax.axis('off')
         
-
     def _add_master_frame_image(self):
         self._im = self.ax.imshow(
             self.img[::self.binning_factor, ::self.binning_factor], 
             interpolation='nearest', 
             vmin=self.vmin, 
             vmax=self.vmax,
-            #aspect='equal',
             cmap='gist_gray')
         
         self.vmin, self.vmax = self._im.get_clim()
@@ -332,18 +321,26 @@ class ImageViewer(tk.Frame):
         self._load_zoom_image_into_figure()
         self._draw_zoom_image()
    
-        
+       
+    def _show_zoom_scale_widget(self):
+        self.zoom_scale_master.deiconify()
+        self.zoom_scale_master.update()
 
     def _add_zoom_scale_widget(self):
-        
-        self.zoom_scale_slider = tk.Scale( self.slider_frame, from_=self.scale_from_, to=self.scale_to,
+       
+        self.zoom_scale_master = tk.Toplevel(self.slider_frame)
+        self.zoom_master.protocol("WM_DELETE_WINDOW", self._on_zoom_scale_close) 
+        self.zoom_scale_frame = tk.Frame( self.zoom_scale_master, bg="black")
+        self.zoom_scale_frame.pack(side=tk.TOP)
+        self.zoom_scale_frame.pack_propagate(True)
+
+        self.zoom_scale_slider = tk.Scale( self.zoom_scale_frame, from_=self.scale_from_, to=self.scale_to,
                                 resolution=self.scale_increment/2., fg="#00fa32", bg='black', 
-                                length=200,highlightbackground="#00fa32", 
+                                length=200,highlightbackground="#00fa32", label="Zoom fraction",
                                 highlightthickness=0, orient=tk.HORIZONTAL, 
                                 command=self._set_zoom_scale)
-        self.zoom_scale_slider.pack( side=tk.TOP, fill=tk.X, expand=tk.YES)
+        self.zoom_scale_slider.pack( side=tk.TOP, expand=tk.NO)
         self.zoom_scale_slider.set( 0.5)
-    
 
     
 
@@ -405,6 +402,9 @@ class ImageViewer(tk.Frame):
         #self.ax.patches[0].set_visible(False)
         self.zoom_master.withdraw()
     
+    def _on_zoom_scale_close(self):
+        self.zoom_scale_master.withdraw()
+
     def _on_range_slider_close(self):
         self.showing_range_slider=False
         self.slider_master.withdraw()

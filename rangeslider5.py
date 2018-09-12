@@ -15,22 +15,20 @@ frpk = {'padx':0, 'pady':0}
 
 
 class RangeSlider(tk.Frame):
-    def __init__(self, parent, data, color='#00fa32', 
+    def __init__(self, master, data, color='#00fa32', 
             length=600, height=50,**kwargs):
        
-        tk.Frame.__init__(self, parent,  background='black') #**kwargs)
+        tk.Frame.__init__(self, master,  background='black') 
         
         self.color = color
-
+        self.master = master
         self.dat = data
-        m = data.mean()
-        s = data.std()
-        self.minval = m - 1*s
-        self.maxval = m + 4*s
+    
+        self._set_data_lim()
 
         self.Ndat = len(self.dat)
-        self.dmax = max( self.dat)
-        self.dmin = min(self.dat)
+        self.dmax = self.maxval 
+        self.dmin = self.minval 
         self.holding_master = False
 
 #       frames
@@ -58,10 +56,64 @@ class RangeSlider(tk.Frame):
         self.master.bind("<Button-1>", self._on_click_master)
         self.master.bind("<ButtonRelease-1>", self._on_release_master)
 
-    #       ATTRIBS
+        self._make_entry_master()
+
+    def _make_entry_master(self):
+        self.entry_master = tk.Toplevel(self.master)
+        self.entry_master.config(bg="black")
+        self.entry_frame = tk.Frame( self.entry_master, bg="black", bd=2)
+        self.entry_frame.pack(side=tk.TOP, expand=tk.YES, fill=tk.BOTH)
+        self._make_entries()
+        self._set_min_max_vals()
+        self.entry_master.withdraw()
+        self.entry_master.protocol("WM_DELETE_WINDOW", self._on_entry_master_close)
+
+
+    def _on_entry_master_close(self):
+        self.entry_master.withdraw()
+
+    def _make_entries(self):
+        min_fr = tk.Frame(self.entry_master)
+        min_fr.pack(side=tk.TOP)
+        
+        max_fr = tk.Frame(self.entry_master)
+        max_fr.pack(side=tk.TOP, padx=2,pady=2)
+        
+        tk.Label(min_fr, text="vmin", fg=self.color, bg="black", width=5, \
+            font="Helvetic 18").pack(side=tk.LEFT)
+        self.entry_minval = tk.Entry(min_fr, 
+            bd=2, 
+            width=10)
+        self.entry_minval.pack(side=tk.LEFT, fill=tk.X, expand=tk.YES)
+        
+        tk.Label(max_fr, text="vmax", fg=self.color, bg="black", width=5,\
+            font="Helvetic 18").pack(side=tk.LEFT)
+        self.entry_maxval = tk.Entry(max_fr, 
+            bd=2, 
+            width=10)
+
+        self.entry_maxval.pack(side=tk.LEFT, fill=tk.X, expand=tk.YES)
+        
+        self.entry_minval.bind('<Return>', self._get_min_max_vals )
+        self.entry_maxval.bind('<Return>', self._get_min_max_vals )
+
+        self.entry_maxval.config( bg='black', fg="white", font="Helvetica 18",  insertbackground="white")
+        self.entry_minval.config( bg='black', fg="white", font="Helvetica 18", insertbackground="white")
+
+
+    def _set_data_lim(self):
+        m = self.dat.mean()
+        s = self.dat.std()
+        self.minval = m - 2*s
+        self.maxval = m + 4*s
     
     def _set_item_sizes(self):        
+        """
+        Sets various lengths in the canvas
         
+        Aspects are predefined and that should look ok ;)
+        """
+
         self.LHS_textY=15/60. * self.range_slider_height
         self.RHS_textY=40/60. * self.range_slider_height
         self.token_height=30/60.*self.range_slider_height
@@ -75,7 +127,6 @@ class RangeSlider(tk.Frame):
         self.xmin = self.LHS_gap
         self.line_pos = self.range_slider_height/2.
         self.slider_range = self.xmax -  self.xmin
-    
         self.fontsize = int( self.token_width*0.75 )
 
     def _on_click_master(self, event):
@@ -130,7 +181,6 @@ class RangeSlider(tk.Frame):
             self.canvas.itemconfig( "mintext", font=new_font)
             self.canvas.itemconfig( "maxtext", font=new_font)
             
-    
     def _create_canvas(self):
         self.canvas = tk.Canvas(self.slider_frame, width=self.range_slider_len, 
             height=self.range_slider_height, bg='black', highlightthickness=1, 
@@ -154,7 +204,7 @@ class RangeSlider(tk.Frame):
         i1 = self.canvas.create_polygon( coor1, 
                 activefill=self.color,
                 outline=self.color, 
-                fill="black", tags="token", width=2)
+                fill="black", tags="tokenLHS", width=2)
         
         coor2 = [  self.xmax-self.token_width*.5 , self.line_pos+self.token_height, 
              self.xmax+self.token_width*.5 , self.line_pos+self.token_height,
@@ -163,25 +213,39 @@ class RangeSlider(tk.Frame):
         i2 = self.canvas.create_polygon( coor2, 
                 activefill=self.color,
                 outline=self.color, 
-                fill="black", tags="token", width=2)
+                fill="black", tags="tokenRHS", width=2)
         
         self.items = [i1, i2] # store the IDs
        
     def _create_handle_labels(self):
+        
         self.minvaltext = self.canvas.create_text( 
             self.xmin + self.token_width+self.text_offset, 
             self.LHS_textY, text="%.2f"%self.dmin, font=("Helvetica", self.fontsize), 
             fill='white', tags="mintext")
+        
         self.maxvaltext = self.canvas.create_text( 
             self.xmax - self.token_width-self.text_offset,
             self.RHS_textY, text="%.2f"%self.dmax, fill='white', font=("Helvetica", self.fontsize),
             tags="maxtext")
-       
+      
+
+    def _on_shiftmouse_click(self, event):
+        print("open entry shits") 
+        self.entry_master.deiconify()
+        self.master.update()
+
     def _bind_slider_handles(self):
         # any object with the "token" tag
-        self.canvas.tag_bind("token", "<ButtonPress-1>", self.on_token_press)
-        self.canvas.tag_bind("token", "<ButtonRelease-1>", self.on_token_release)
-        self.canvas.tag_bind("token", "<B1-Motion>", self.on_token_motion)
+        self.canvas.tag_bind("tokenLHS", "<ButtonPress-1>", self.on_token_press)
+        self.canvas.tag_bind("tokenLHS", "<Shift-1>", self._on_shiftmouse_click)
+        self.canvas.tag_bind("tokenRHS", "<Shift-1>", self._on_shiftmouse_click)
+        self.canvas.tag_bind("tokenLHS", "<ButtonRelease-1>", self.on_token_release)
+        self.canvas.tag_bind("tokenLHS", "<B1-Motion>", self.on_token_motion)
+        
+        self.canvas.tag_bind("tokenRHS", "<ButtonPress-1>", self.on_token_press)
+        self.canvas.tag_bind("tokenRHS", "<ButtonRelease-1>", self.on_token_release)
+        self.canvas.tag_bind("tokenRHS", "<B1-Motion>", self.on_token_motion)
         
     def on_token_press(self, event):
         '''Begining drag of an object'''
@@ -213,11 +277,8 @@ class RangeSlider(tk.Frame):
             x_new = min( clicked_x + delta_x, self.xmax) 
             x_new = max( x_new, other_x+0.00001)
 
-            clicked_coors[4] = x_new
-            clicked_coors[0] = x_new-self.token_width*.5
-            clicked_coors[2] = x_new+ self.token_width*.5
-            self.canvas.coords( clicked_item,*clicked_coors) 
-            
+            self._shift_handle_along_track( "tokenRHS", x_new)
+
             self.canvas.coords( self.maxvaltext, (x_new - self.token_width-self.text_offset,
                 self.RHS_textY))
             
@@ -235,13 +296,10 @@ class RangeSlider(tk.Frame):
             x_new = max( clicked_x + delta_x, self.xmin) 
             x_new = min( x_new, other_x-0.00001) #-self.token_width) 
             
-            clicked_coors[4] = x_new
-            clicked_coors[0] = x_new-self.token_width*.5
-            clicked_coors[2] = x_new+ self.token_width*.5
+            self._shift_handle_along_track( "tokenLHS", x_new)
             
-            self.canvas.coords( clicked_item,*clicked_coors) 
-            
-            self.canvas.coords( self.minvaltext, (x_new+self.token_width+self.text_offset,
+            self.canvas.coords( self.minvaltext, 
+                (x_new+self.token_width+self.text_offset,
                 self.LHS_textY))
             new_drag = max( self.xmin,  event.x)
             new_drag = min(  other_x , new_drag)
@@ -252,6 +310,53 @@ class RangeSlider(tk.Frame):
             
             self.canvas.itemconfig( self.minvaltext, text="%.2f"%self.minval)
         
+
+    def _shift_handle_along_track( self, handle_id, x_new): 
+        coor = self.canvas.coords( handle_id)
+        coor[0] = x_new-self.token_width*.5
+        coor[2] = x_new+ self.token_width*.5
+        coor[4] = x_new
+        self.canvas.coords( handle_id, *coor)
+        
+
+    def _get_min_max_vals(self , event):
+        dmin = float( self.entry_minval.get() )
+        dmax = float( self.entry_maxval.get() )
+        
+        if dmin > dmax:
+            return 
+        
+        # move the left item
+        if self.dmin != dmin:
+            self.dmin = dmin
+            self.minval = dmin
+            
+            self._shift_handle_along_track( "tokenLHS", self.xmin)   
+            
+            self.canvas.coords( "mintext",
+                 (self.xmin + self.token_width+self.text_offset, self.LHS_textY))
+        
+        if self.dmax != dmax:
+            self.dmax = dmax
+            self.maxval = dmax
+            
+            self._shift_handle_along_track( "tokenRHS", self.xmax)   
+            
+            self.canvas.coords( "maxtext",
+                 (self.xmax - self.token_width - self.text_offset, self.RHS_textY))
+            
+        self.canvas.itemconfig( "mintext", text="%.2f"%self.minval)
+        self.canvas.itemconfig( "maxtext", text="%.2f"%self.maxval)
+            
+
+    def _set_min_max_vals(self): 
+        self.entry_minval.delete(0,tk.END)
+        self.entry_minval.insert(0,"%.1f"%self.minval)
+        self.entry_maxval.delete(0,tk.END)
+        self.entry_maxval.insert(0,"%.1f"%self.maxval)
+        
+
+
 
 def main():
     test_data = np.random.normal( 10,1,10000)
